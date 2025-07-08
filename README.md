@@ -1,3 +1,3 @@
 index.html
 manifest.json
-sevice-worker.js
+service-worker.js
