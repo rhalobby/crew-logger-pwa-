@@ -1,17 +1,21 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Crew Logger PWA</title>
-  <link rel="manifest" href="manifest.json" />
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('service-worker.js');
+{
+  "name": "Crew Logger",
+  "short_name": "CrewLogger",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2196f3",
+  "description": "JTR/FSD/Walky Logger for Crew",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/847/847969.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/847/847969.png",
+      "sizes": "512x512",
+      "type": "image/png"
     }
-  </script>
-</head>
-<body>
-  <h1>Welcome to Crew Logger PWA</h1>
-</body>
-</html>
+  ]
+}
