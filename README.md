@@ -1,3 +1,3 @@
 index.html
 manifest.json
-sevic-eworker.js
+sevice-worker.js
