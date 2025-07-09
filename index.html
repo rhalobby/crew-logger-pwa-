@@ -10,23 +10,70 @@
     body {
       font-family: Arial, sans-serif;
       text-align: center;
-      padding: 2em;
+      padding: 1em;
       background: #f5f5f5;
     }
     h1 {
       color: #2196f3;
     }
+    input, select, button {
+      padding: 10px;
+      font-size: 16px;
+      margin: 8px;
+      width: 80%;
+      max-width: 400px;
+    }
+    .btn {
+      background-color: #2196f3;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    .btn:disabled {
+      background-color: #ccc;
+    }
   </style>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('service-worker.js')
-        .then(() => console.log('Service Worker registered'))
-        .catch(err => console.error('Service Worker failed:', err));
+        .then(() => console.log('Service Worker registered'));
+    }
+
+    function handleDeclaration() {
+      document.getElementById("submitBtn").disabled = false;
+      alert("Declaration accepted.");
+    }
+
+    function handleSubmit() {
+      const cmsId = document.getElementById("cmsId").value;
+      const itemType = document.getElementById("itemType").value;
+      const itemNo = document.getElementById("itemNo").value;
+      const cfTime = document.getElementById("cfTime").value;
+      
+      alert(`Submitted:\nCMS ID: ${cmsId}\nType: ${itemType}\nNo: ${itemNo}\nCF Time: ${cfTime}`);
+      
+      // TODO: Send to Google Sheet using Apps Script Web App
     }
   </script>
 </head>
 <body>
-  <h1>Welcome to Crew Logger PWA</h1>
-  <p>This app works offline and can be installed on your device.</p>
+  <h1>Crew Logger PWA</h1>
+
+  <input type="text" id="cmsId" placeholder="CMS ID" /><br />
+  
+  <select id="itemType">
+    <option value="JTR">JTR</option>
+    <option value="FSD">FSD</option>
+    <option value="Walky">Walky</option>
+  </select><br />
+
+  <input type="text" id="itemNo" placeholder="Item Number" /><br />
+
+  <input type="time" id="cfTime" placeholder="CF Time" /><br />
+
+  <button class="btn" onclick="handleDeclaration()">Accept Declaration</button><br />
+
+  <button id="submitBtn" class="btn" onclick="handleSubmit()" disabled>Submit</button>
+
 </body>
 </html>
