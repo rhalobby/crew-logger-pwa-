@@ -11,7 +11,7 @@
       font-family: Arial, sans-serif;
       text-align: center;
       padding: 1em;
-      background: #f5f5f5;
+      background: #f0f0f0;
     }
     h1 {
       color: #2196f3;
@@ -27,40 +27,19 @@
       background-color: #2196f3;
       color: white;
       border: none;
+      border-radius: 6px;
       cursor: pointer;
     }
     .btn:disabled {
-      background-color: #ccc;
+      background-color: #bbb;
     }
   </style>
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('service-worker.js')
-        .then(() => console.log('Service Worker registered'));
-    }
-
-    function handleDeclaration() {
-      document.getElementById("submitBtn").disabled = false;
-      alert("Declaration accepted.");
-    }
-
-    function handleSubmit() {
-      const cmsId = document.getElementById("cmsId").value;
-      const itemType = document.getElementById("itemType").value;
-      const itemNo = document.getElementById("itemNo").value;
-      const cfTime = document.getElementById("cfTime").value;
-      
-      alert(`Submitted:\nCMS ID: ${cmsId}\nType: ${itemType}\nNo: ${itemNo}\nCF Time: ${cfTime}`);
-      
-      // TODO: Send to Google Sheet using Apps Script Web App
-    }
-  </script>
 </head>
 <body>
   <h1>Crew Logger PWA</h1>
 
   <input type="text" id="cmsId" placeholder="CMS ID" /><br />
-  
+
   <select id="itemType">
     <option value="JTR">JTR</option>
     <option value="FSD">FSD</option>
@@ -69,11 +48,63 @@
 
   <input type="text" id="itemNo" placeholder="Item Number" /><br />
 
-  <input type="time" id="cfTime" placeholder="CF Time" /><br />
+  <input type="time" id="cfTime" /><br />
 
   <button class="btn" onclick="handleDeclaration()">Accept Declaration</button><br />
 
   <button id="submitBtn" class="btn" onclick="handleSubmit()" disabled>Submit</button>
 
+  <script>
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js')
+        .then(() => console.log('✅ Service Worker registered'));
+    }
+
+    function handleDeclaration() {
+      document.getElementById("submitBtn").disabled = false;
+      alert("Declaration accepted");
+    }
+
+    function handleSubmit() {
+      const cmsId = document.getElementById("cmsId").value.trim();
+      const itemType = document.getElementById("itemType").value;
+      const itemNo = document.getElementById("itemNo").value.trim();
+      const cfTime = document.getElementById("cfTime").value;
+
+      if (!cmsId || !itemNo || !cfTime) {
+        alert("❌ Please fill all fields");
+        return;
+      }
+
+      const data = {
+        cmsId,
+        itemType,
+        itemNo,
+        cfTime,
+        declaration: "Yes"
+      };
+
+      const sheetURL = "https://script.google.com/macros/s/AKfycbwbgFeK9hOavzcysWXWRLpW3Xw85DVCI7iNGqSBJnPaMgiax4gsxrPjRfQP0QopH0spHw/exec";
+
+      fetch(sheetURL, {
+        method: "POST",
+        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" }
+      })
+      .then(res => res.text())
+      .then(response => {
+        alert("✅ Submitted to Google Sheet");
+        // Reset form
+        document.getElementById("cmsId").value = "";
+        document.getElementById("itemNo").value = "";
+        document.getElementById("cfTime").value = "";
+        document.getElementById("submitBtn").disabled = true;
+      })
+      .catch(err => {
+        alert("❌ Error: " + err);
+      });
+    }
+  </script>
 </body>
 </html>
