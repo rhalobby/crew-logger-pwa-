@@ -1,5 +1,5 @@
 {
-  "name": "Crew Logger PWA",
+  "name": "Crew Logger",
   "short_name": "CrewLogger",
   "start_url": "./index.html",
   "display": "standalone",
