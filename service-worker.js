@@ -1,38 +1,45 @@
-const CACHE_NAME = "crew-logger-cache-v1";
-const urlsToCache = [
-  "index.html",
-  "manifest.json",
-  "icons/icon-192.png",
-  "icons/icon-512.png"
+const CACHE_NAME = 'crew-logger-cache-v1';
+const FILES_TO_CACHE = [
+  './',
+  './index.html',
+  './manifest.json',
+  './icons/icon-192.png',
+  './icons/icon-512.png'
 ];
 
-// Install event – caching static assets
-self.addEventListener("install", (event) => {
+// Install Service Worker
+self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(urlsToCache))
+    caches.open(CACHE_NAME).then(cache => {
+      return cache.addAll(FILES_TO_CACHE);
+    })
   );
+  self.skipWaiting();
 });
 
-// Activate event – clean up old caches
-self.addEventListener("activate", (event) => {
+// Activate Service Worker
+self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then((cacheNames) =>
-      Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName);
+    caches.keys().then(keyList => {
+      return Promise.all(
+        keyList.map(key => {
+          if (key !== CACHE_NAME) {
+            return caches.delete(key);
           }
         })
-      )
-    )
+      );
+    })
   );
+  self.clients.claim();
 });
 
-// Fetch event – serve cached files when offline
-self.addEventListener("fetch", (event) => {
+// Fetch Assets
+self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') return;
+
   event.respondWith(
-    caches.match(event.request)
-      .then((response) => response || fetch(event.request))
+    caches.match(event.request).then(response => {
+      return response || fetch(event.request);
+    })
   );
 });
