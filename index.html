@@ -33,59 +33,94 @@
     .btn:disabled {
       background-color: #bbb;
     }
+    #itemSection, #submitSection {
+      display: none;
+    }
   </style>
 </head>
 <body>
   <h1>Crew Logger PWA</h1>
 
-  <input type="text" id="cmsId" placeholder="CMS ID" /><br />
+  <!-- Declaration -->
+  <div id="declarationSection">
+    <p style="color:red; font-weight:bold;">
+      On accepting, you hereby declare that you have gone through the signal diagram for your section and pledged for No SPAD
+    </p>
+    <button class="btn" onclick="acceptDeclaration()">Accept</button>
+  </div>
 
-  <select id="itemType">
-    <option value="JTR">JTR</option>
-    <option value="FSD">FSD</option>
-    <option value="Walky">Walky</option>
-  </select><br />
+  <!-- CF TIME -->
+  <div id="cfTimeSection">
+    <input type="text" id="cmsId" placeholder="CMS ID" disabled /><br />
+    <input type="text" id="name" placeholder="Name" disabled /><br />
+    <input type="text" id="designation" placeholder="Designation" disabled /><br />
+    <input type="time" id="cfTime" placeholder="CF TIME" /><br />
+    <button class="btn" onclick="proceedAfterCFTime()">Proceed</button>
+  </div>
 
-  <input type="text" id="itemNo" placeholder="Item Number" /><br />
+  <!-- LPG Item Entry -->
+  <div id="itemSection">
+    <select id="itemType">
+      <option value="JTR">JTR</option>
+      <option value="FSD">FSD</option>
+      <option value="Walky">Walky</option>
+    </select><br />
+    <input type="text" id="itemNo" placeholder="Item Number" /><br />
+  </div>
 
-  <input type="time" id="cfTime" /><br />
-
-  <button class="btn" onclick="handleDeclaration()">Accept Declaration</button><br />
-
-  <button id="submitBtn" class="btn" onclick="handleSubmit()" disabled>Submit</button>
+  <!-- Submit -->
+  <div id="submitSection">
+    <button class="btn" onclick="submitLog()">Submit</button>
+  </div>
 
   <script>
-    // Register service worker
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('service-worker.js')
-        .then(() => console.log('✅ Service Worker registered'));
+    const espURL = "http://192.168.4.1/ring"; // Update with real ESP8266 IP
+    const sheetURL = "https://script.google.com/macros/s/AKfycbwbgFeK9hOavzcysWXWRLpW3Xw85DVCI7iNGqSBJnPaMgiax4gsxrPjRfQP0QopH0spHw/exec";
+
+    // Simulate fingerprint match and fill details
+    const crew = {
+      cmsId: "1234567",
+      name: "RAJESH KUMAR",
+      designation: "LPG" // Change to "ALP", "GUARD", etc to test
+    };
+
+    function acceptDeclaration() {
+      document.getElementById("declarationSection").style.display = "none";
+      document.getElementById("cfTimeSection").style.display = "block";
+
+      // Fill details
+      document.getElementById("cmsId").value = crew.cmsId;
+      document.getElementById("name").value = crew.name;
+      document.getElementById("designation").value = crew.designation;
+
+      // Trigger bell
+      fetch(espURL).then(() => console.log("🔔 Bell triggered"));
     }
 
-    function handleDeclaration() {
-      document.getElementById("submitBtn").disabled = false;
-      alert("Declaration accepted");
-    }
-
-    function handleSubmit() {
-      const cmsId = document.getElementById("cmsId").value.trim();
-      const itemType = document.getElementById("itemType").value;
-      const itemNo = document.getElementById("itemNo").value.trim();
+    function proceedAfterCFTime() {
       const cfTime = document.getElementById("cfTime").value;
-
-      if (!cmsId || !itemNo || !cfTime) {
-        alert("❌ Please fill all fields");
+      if (!cfTime) {
+        alert("❌ Enter CF TIME");
         return;
       }
 
+      if (crew.designation === "LPG") {
+        document.getElementById("itemSection").style.display = "block";
+      }
+
+      document.getElementById("submitSection").style.display = "block";
+    }
+
+    function submitLog() {
       const data = {
-        cmsId,
-        itemType,
-        itemNo,
-        cfTime,
+        cmsId: crew.cmsId,
+        name: crew.name,
+        designation: crew.designation,
+        cfTime: document.getElementById("cfTime").value,
+        itemType: document.getElementById("itemType")?.value || "",
+        itemNo: document.getElementById("itemNo")?.value || "",
         declaration: "Yes"
       };
-
-      const sheetURL = "https://script.google.com/macros/s/AKfycbwbgFeK9hOavzcysWXWRLpW3Xw85DVCI7iNGqSBJnPaMgiax4gsxrPjRfQP0QopH0spHw/exec";
 
       fetch(sheetURL, {
         method: "POST",
@@ -93,17 +128,28 @@
         headers: { "Content-Type": "application/json" }
       })
       .then(res => res.text())
-      .then(response => {
-        alert("✅ Submitted to Google Sheet");
-        // Reset form
-        document.getElementById("cmsId").value = "";
-        document.getElementById("itemNo").value = "";
-        document.getElementById("cfTime").value = "";
-        document.getElementById("submitBtn").disabled = true;
+      .then(() => {
+        alert("✅ Logged to Google Sheet");
+        resetForm();
       })
       .catch(err => {
-        alert("❌ Error: " + err);
+        alert("❌ Failed: " + err);
       });
+    }
+
+    function resetForm() {
+      document.getElementById("declarationSection").style.display = "block";
+      document.getElementById("cfTimeSection").style.display = "none";
+      document.getElementById("itemSection").style.display = "none";
+      document.getElementById("submitSection").style.display = "none";
+
+      document.getElementById("cfTime").value = "";
+      document.getElementById("itemNo").value = "";
+    }
+
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js');
     }
   </script>
 </body>
