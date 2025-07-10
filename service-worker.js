@@ -1,42 +1,34 @@
 const CACHE_NAME = "crew-logger-cache-v1";
-const FILES_TO_CACHE = [
-  "/",
-  "/index.html",
-  "/manifest.json",
-  "/service-worker.js",
-  "/icon-192.png",
-  "/icon-512.png"
+const urlsToCache = [
+  "index.html",
+  "manifest.json",
+  "icon-192.png",
+  "icon-512.png"
 ];
 
-// Install Service Worker
+// Install Service Worker and cache essential files
 self.addEventListener("install", (event) => {
-  console.log("[ServiceWorker] Install");
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(FILES_TO_CACHE);
+      return cache.addAll(urlsToCache);
     })
   );
-  self.skipWaiting();
 });
 
-// Activate Service Worker
+// Activate Service Worker and clean old caches if needed
 self.addEventListener("activate", (event) => {
-  console.log("[ServiceWorker] Activate");
   event.waitUntil(
-    caches.keys().then((keyList) => {
-      return Promise.all(
-        keyList.map((key) => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
+    caches.keys().then((cacheNames) =>
+      Promise.all(
+        cacheNames.map((name) => {
+          if (name !== CACHE_NAME) return caches.delete(name);
         })
-      );
-    })
+      )
+    )
   );
-  self.clients.claim();
 });
 
-// Fetch
+// Intercept fetch requests and serve from cache if available
 self.addEventListener("fetch", (event) => {
   event.respondWith(
     caches.match(event.request).then((response) => {
