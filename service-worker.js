@@ -1,16 +1,18 @@
-const CACHE_NAME = 'crew-logger-cache-v1';
+const CACHE_NAME = "crew-logger-cache-v1";
 const FILES_TO_CACHE = [
-  './',
-  './index.html',
-  './manifest.json',
-  './icons/icon-192.png',
-  './icons/icon-512.png'
+  "/",
+  "/index.html",
+  "/manifest.json",
+  "/service-worker.js",
+  "/icon-192.png",
+  "/icon-512.png"
 ];
 
 // Install Service Worker
-self.addEventListener('install', event => {
+self.addEventListener("install", (event) => {
+  console.log("[ServiceWorker] Install");
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
+    caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(FILES_TO_CACHE);
     })
   );
@@ -18,11 +20,12 @@ self.addEventListener('install', event => {
 });
 
 // Activate Service Worker
-self.addEventListener('activate', event => {
+self.addEventListener("activate", (event) => {
+  console.log("[ServiceWorker] Activate");
   event.waitUntil(
-    caches.keys().then(keyList => {
+    caches.keys().then((keyList) => {
       return Promise.all(
-        keyList.map(key => {
+        keyList.map((key) => {
           if (key !== CACHE_NAME) {
             return caches.delete(key);
           }
@@ -33,12 +36,10 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// Fetch Assets
-self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET') return;
-
+// Fetch
+self.addEventListener("fetch", (event) => {
   event.respondWith(
-    caches.match(event.request).then(response => {
+    caches.match(event.request).then((response) => {
       return response || fetch(event.request);
     })
   );
