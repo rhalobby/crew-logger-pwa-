@@ -1,11 +1,11 @@
 {
   "name": "Crew Logger PWA",
   "short_name": "CrewLogger",
-  "start_url": "./index.html",
+  "start_url": "index.html",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2196f3",
-  "description": "A Progressive Web App for crew fingerprint logging and item issue.",
+  "orientation": "portrait",
   "icons": [
     {
       "src": "icon-192.png",
