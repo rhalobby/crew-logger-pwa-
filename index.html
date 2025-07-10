@@ -10,11 +10,20 @@
     body {
       font-family: Arial, sans-serif;
       text-align: center;
-      padding: 1em;
-      background: #f0f0f0;
+      background: #f9f9f9;
+      padding: 2em;
     }
+    .hidden { display: none; }
     h1 {
-      color: #2196f3;
+      color: #d32f2f;
+    }
+    .box {
+      background: white;
+      border: 1px solid #ccc;
+      padding: 1.5em;
+      margin: 1em auto;
+      max-width: 500px;
+      border-radius: 8px;
     }
     input, select, button {
       padding: 10px;
@@ -30,66 +39,59 @@
       border-radius: 6px;
       cursor: pointer;
     }
-    .btn:disabled {
-      background-color: #bbb;
-    }
   </style>
 </head>
 <body>
-  <h1>Crew Logger PWA</h1>
 
-  <input type="text" id="cmsId" placeholder="CMS ID" /><br />
+  <div id="declarationBox" class="box">
+    <h1>Declaration</h1>
+    <p>By pressing "Accept", you declare that you have gone through the signal roll diagram and pledge for <strong>No SPAD</strong>.</p>
+    <button class="btn" onclick="handleAcceptDeclaration()">Accept</button>
+  </div>
 
-  <select id="itemType">
-    <option value="JTR">JTR</option>
-    <option value="FSD">FSD</option>
-    <option value="Walky">Walky</option>
-  </select><br />
-
-  <input type="text" id="itemNo" placeholder="Enter JTR Number" /><br />
-
-  <input type="time" id="cfTime" /><br />
-
-  <button class="btn" onclick="handleDeclaration()">Accept Declaration</button><br />
-
-  <button id="submitBtn" class="btn" onclick="handleSubmit()" disabled>Submit</button>
+  <div id="itemBox" class="box hidden">
+    <h2>Issue Items (LPG Crew Only)</h2>
+    <input type="text" id="cmsId" placeholder="CMS ID" /><br />
+    <select id="itemType">
+      <option value="JTR">JTR</option>
+      <option value="FSD">FSD</option>
+      <option value="Walky">Walky</option>
+    </select><br />
+    <input type="text" id="itemNo" placeholder="Item Number" /><br />
+    <input type="time" id="cfTime" /><br />
+    <button class="btn" onclick="handleSubmit()">Submit</button>
+  </div>
 
   <script>
-    // Register service worker
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('service-worker.js')
-        .then(() => console.log('✅ Service Worker registered'));
-    }
+    const bellTriggerURL = "http://192.168.4.1/ring"; // Replace with your ESP8266 bell trigger IP
+    const sheetURL = "https://script.google.com/macros/s/AKfycbwbgFeK9hOavzcysWXWRLpW3Xw85DVCI7iNGqSBJnPaMgiax4gsxrPjRfQP0QopH0spHw/exec";
 
-    const itemTypeSelect = document.getElementById("itemType");
-    const itemNoInput = document.getElementById("itemNo");
+    // Simulated designation detection (normally from fingerprint match)
+    let designation = "LPG"; // Change to "ALP" or "GUARD" to test non-LPG flow
 
-    itemTypeSelect.addEventListener("change", () => {
-      const type = itemTypeSelect.value;
-      if (type === "JTR") itemNoInput.placeholder = "Enter JTR Number";
-      else if (type === "FSD") itemNoInput.placeholder = "Enter FSD Number";
-      else if (type === "Walky") itemNoInput.placeholder = "Enter Walky Number";
-    });
+    function handleAcceptDeclaration() {
+      fetch(bellTriggerURL)
+        .then(() => {
+          alert("✅ Bell triggered");
 
-    function handleDeclaration() {
-      document.getElementById("submitBtn").disabled = false;
-      alert("Declaration accepted");
+          if (designation === "LPG") {
+            document.getElementById("declarationBox").classList.add("hidden");
+            document.getElementById("itemBox").classList.remove("hidden");
+          }
+        })
+        .catch(err => {
+          alert("❌ Bell failed: " + err);
+        });
     }
 
     function handleSubmit() {
       const cmsId = document.getElementById("cmsId").value.trim();
-      const itemType = itemTypeSelect.value;
-      const itemNo = itemNoInput.value.trim();
+      const itemType = document.getElementById("itemType").value;
+      const itemNo = document.getElementById("itemNo").value.trim();
       const cfTime = document.getElementById("cfTime").value;
 
       if (!cmsId || !itemNo || !cfTime) {
         alert("❌ Please fill all fields");
-        return;
-      }
-
-      // Allow only alphanumerics, dashes and spaces
-      if (!/^[a-zA-Z0-9\- ]+$/.test(itemNo)) {
-        alert("❌ Item Number contains invalid characters");
         return;
       }
 
@@ -98,10 +100,9 @@
         itemType,
         itemNo,
         cfTime,
-        declaration: "Yes"
+        declaration: "Yes",
+        designation: designation
       };
-
-      const sheetURL = "https://script.google.com/macros/s/AKfycbwbgFeK9hOavzcysWXWRLpW3Xw85DVCI7iNGqSBJnPaMgiax4gsxrPjRfQP0QopH0spHw/exec";
 
       fetch(sheetURL, {
         method: "POST",
@@ -112,13 +113,17 @@
       .then(response => {
         alert("✅ Submitted to Google Sheet");
         document.getElementById("cmsId").value = "";
-        itemNoInput.value = "";
+        document.getElementById("itemNo").value = "";
         document.getElementById("cfTime").value = "";
-        document.getElementById("submitBtn").disabled = true;
       })
       .catch(err => {
         alert("❌ Error: " + err);
       });
+    }
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js')
+        .then(() => console.log('✅ Service Worker registered'));
     }
   </script>
 </body>
