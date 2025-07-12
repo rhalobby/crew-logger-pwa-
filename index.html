@@ -9,19 +9,19 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      text-align: center;
+      background-color: #f5f5f5;
       padding: 1em;
-      background: #f0f0f0;
+      text-align: center;
     }
     .hidden { display: none; }
     .btn {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 10px;
       background-color: #2196f3;
       color: white;
       border: none;
-      padding: 10px 20px;
-      font-size: 16px;
-      border-radius: 6px;
-      margin: 10px;
+      border-radius: 4px;
       cursor: pointer;
     }
     input, select {
@@ -36,5 +36,105 @@
 <body>
   <h1>Crew Logger</h1>
 
-  <!-- Declaration Screen -->
-  <
+  <div id="waiting">Waiting for fingerprint match...</div>
+
+  <div id="declarationScreen" class="hidden">
+    <p style="color:red; font-weight:bold;">
+      On accepting, you declare that you have read the signal diagram and pledge for No SPAD.
+    </p>
+    <button class="btn" onclick="acceptDeclaration()">Accept</button>
+  </div>
+
+  <div id="itemForm" class="hidden">
+    <p><strong id="crewInfo"></strong></p>
+    <select id="itemType">
+      <option value="JTR">JTR</option>
+      <option value="FSD">FSD</option>
+      <option value="Walky">Walky</option>
+    </select><br />
+    <input type="text" id="itemNo" placeholder="Item Number" /><br />
+    <input type="time" id="cfTime" /><br />
+    <button class="btn" onclick="submitItem()">Submit</button>
+  </div>
+
+  <script>
+    let crewData = {};
+
+    // Connect to SB100CB via WebSocket (through ESP8266 bridge)
+    const socket = new WebSocket("ws://192.168.4.1:81"); // replace with your ESP8266 IP
+
+    socket.onopen = () => console.log("🟢 WebSocket connected");
+
+    socket.onmessage = event => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.name && data.designation && data.cmsId) {
+          crewData = data;
+          document.getElementById("waiting").classList.add("hidden");
+          document.getElementById("declarationScreen").classList.remove("hidden");
+        }
+      } catch (e) {
+        console.error("Invalid JSON:", e);
+      }
+    };
+
+    function acceptDeclaration() {
+      // Ring bell via ESP8266
+      fetch("http://192.168.4.1/ring");
+
+      // Log to Google Sheet
+      const sheetURL = "https://script.google.com/macros/s/AKfycbwbgFeK9hOavzcysWXWRLpW3Xw85DVCI7iNGqSBJnPaMgiax4gsxrPjRfQP0QopH0spHw/exec";
+      fetch(sheetURL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          timestamp: new Date().toISOString(),
+          name: crewData.name,
+          designation: crewData.designation,
+          cmsId: crewData.cmsId,
+          declaration: "Yes"
+        })
+      });
+
+      document.getElementById("declarationScreen").classList.add("hidden");
+
+      if (crewData.designation === "LPG") {
+        document.getElementById("itemForm").classList.remove("hidden");
+        document.getElementById("crewInfo").innerText = `${crewData.name} (${crewData.cmsId})`;
+      } else {
+        alert("✅ Bell triggered. Non-LPG crew logged.");
+      }
+    }
+
+    function submitItem() {
+      const itemType = document.getElementById("itemType").value;
+      const itemNo = document.getElementById("itemNo").value.trim();
+      const cfTime = document.getElementById("cfTime").value;
+
+      if (!itemNo || !cfTime) {
+        alert("❌ Fill all item details");
+        return;
+      }
+
+      const itemData = {
+        timestamp: new Date().toISOString(),
+        name: crewData.name,
+        designation: crewData.designation,
+        cmsId: crewData.cmsId,
+        itemType,
+        itemNo,
+        cfTime,
+        action: "Issue"
+      };
+
+      fetch("https://script.google.com/macros/s/AKfycbwbgFeK9hOavzcysWXWRLpW3Xw85DVCI7iNGqSBJnPaMgiax4gsxrPjRfQP0QopH0spHw/exec", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(itemData)
+      })
+      .then(() => alert("✅ Item Logged"))
+      .catch(err => alert("❌ Error: " + err));
+    }
+  </script>
+</body>
+</html>
