@@ -13,136 +13,28 @@
       padding: 1em;
       background: #f0f0f0;
     }
-    h1 {
-      color: #2196f3;
-    }
-    input, select, button {
-      padding: 10px;
-      font-size: 16px;
-      margin: 8px;
-      width: 80%;
-      max-width: 400px;
-    }
+    .hidden { display: none; }
     .btn {
       background-color: #2196f3;
       color: white;
       border: none;
+      padding: 10px 20px;
+      font-size: 16px;
       border-radius: 6px;
+      margin: 10px;
       cursor: pointer;
     }
-    .btn:disabled {
-      background-color: #bbb;
-    }
-    .hidden {
-      display: none;
+    input, select {
+      padding: 10px;
+      margin: 8px;
+      font-size: 16px;
+      width: 80%;
+      max-width: 400px;
     }
   </style>
 </head>
 <body>
-  <h1>Crew Logger PWA</h1>
+  <h1>Crew Logger</h1>
 
-  <input type="text" id="name" placeholder="Name" /><br />
-  <input type="text" id="cmsId" placeholder="CMS ID" /><br />
-  <input type="text" id="designation" placeholder="Designation (e.g., LPG)" /><br />
-
-  <button class="btn" onclick="handleDeclaration()">Accept Declaration</button><br />
-
-  <!-- Item entry fields - initially hidden -->
-  <select id="itemType" class="hidden">
-    <option value="JTR">JTR</option>
-    <option value="FSD">FSD</option>
-    <option value="Walky">Walky</option>
-  </select><br />
-
-  <input type="text" id="itemNo" class="hidden" placeholder="Item Number" /><br />
-  <input type="time" id="cfTime" class="hidden" /><br />
-
-  <button id="submitBtn" class="btn hidden" onclick="handleSubmit()">Submit</button>
-
-  <script>
-    // Register service worker
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('service-worker.js')
-        .then(() => console.log('✅ Service Worker registered'));
-    }
-
-    function handleDeclaration() {
-      const name = document.getElementById("name").value.trim();
-      const cmsId = document.getElementById("cmsId").value.trim();
-      const designation = document.getElementById("designation").value.trim().toUpperCase();
-
-      if (!name || !cmsId || !designation) {
-        alert("❌ Please fill Name, CMS ID, and Designation");
-        return;
-      }
-
-      // 🔔 Trigger bell via ESP8266
-      fetch("http://192.168.1.100/ring")
-        .then(() => {
-          console.log("🔔 Bell triggered");
-          alert("Declaration accepted. Bell triggered.");
-
-          // Show item screen only if LPG
-          if (designation === "LPG") {
-            document.getElementById("itemType").classList.remove("hidden");
-            document.getElementById("itemNo").classList.remove("hidden");
-            document.getElementById("cfTime").classList.remove("hidden");
-            document.getElementById("submitBtn").classList.remove("hidden");
-          }
-
-          // Store user info in session
-          sessionStorage.setItem("name", name);
-          sessionStorage.setItem("cmsId", cmsId);
-          sessionStorage.setItem("designation", designation);
-        })
-        .catch(err => {
-          alert("❌ Could not trigger bell: " + err);
-        });
-    }
-
-    function handleSubmit() {
-      const name = sessionStorage.getItem("name");
-      const cmsId = sessionStorage.getItem("cmsId");
-      const designation = sessionStorage.getItem("designation");
-
-      const itemType = document.getElementById("itemType").value;
-      const itemNo = document.getElementById("itemNo").value.trim();
-      const cfTime = document.getElementById("cfTime").value;
-
-      if (!itemNo || !cfTime) {
-        alert("❌ Please enter Item Number and CF Time");
-        return;
-      }
-
-      const data = {
-        name,
-        cmsId,
-        designation,
-        itemType,
-        itemNo,
-        cfTime,
-        declaration: "Yes"
-      };
-
-      const sheetURL = "https://script.google.com/macros/s/AKfycbwbgFeK9hOavzcysWXWRLpW3Xw85DVCI7iNGqSBJnPaMgiax4gsxrPjRfQP0QopH0spHw/exec";
-
-      fetch(sheetURL, {
-        method: "POST",
-        body: JSON.stringify(data),
-        headers: { "Content-Type": "application/json" }
-      })
-      .then(res => res.text())
-      .then(response => {
-        alert("✅ Submitted to Google Sheet");
-        // Reset all fields
-        document.getElementById("itemNo").value = "";
-        document.getElementById("cfTime").value = "";
-        document.getElementById("submitBtn").classList.add("hidden");
-      })
-      .catch(err => {
-        alert("❌ Error: " + err);
-      });
-    }
-  </script>
-</body>
-</html>
+  <!-- Declaration Screen -->
+  <
