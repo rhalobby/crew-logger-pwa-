@@ -2,138 +2,100 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Crew Logger PWA</title>
-  <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#2196f3" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Crew Logger</title>
+  <link rel="manifest" href="manifest.json">
   <style>
     body {
       font-family: Arial, sans-serif;
-      background-color: #f5f5f5;
-      padding: 1em;
+      background-color: #f0f2f5;
       text-align: center;
+      padding: 20px;
     }
-    .hidden { display: none; }
-    .btn {
+
+    #declaration {
+      display: none;
+      background: #fff;
+      padding: 20px;
+      margin-top: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    }
+
+    h1 {
+      color: #333;
+    }
+
+    .info {
+      font-size: 20px;
+      margin: 10px 0;
+    }
+
+    .alert {
+      color: red;
+      font-weight: bold;
+    }
+
+    button {
+      font-size: 18px;
       padding: 10px 20px;
-      font-size: 16px;
-      margin: 10px;
-      background-color: #2196f3;
-      color: white;
+      margin: 15px;
       border: none;
-      border-radius: 4px;
+      border-radius: 5px;
+      background-color: #007bff;
+      color: white;
       cursor: pointer;
     }
-    input, select {
-      padding: 10px;
-      margin: 8px;
-      font-size: 16px;
-      width: 80%;
-      max-width: 400px;
+
+    button:hover {
+      background-color: #0056b3;
     }
   </style>
 </head>
 <body>
-  <h1>Crew Logger</h1>
+  <h1>SB100CB Crew Logger</h1>
 
-  <div id="waiting">Waiting for fingerprint match...</div>
+  <div id="declaration">
+    <p class="info"><strong>CMS ID:</strong> <span id="cmsid"></span></p>
+    <p class="info"><strong>Name:</strong> <span id="name"></span></p>
+    <p class="info"><strong>Designation:</strong> <span id="desg"></span></p>
 
-  <div id="declarationScreen" class="hidden">
-    <p style="color:red; font-weight:bold;">
-      On accepting, you declare that you have read the signal diagram and pledge for No SPAD.
+    <p class="alert">
+      On accepting, you hereby declare that you have gone through the signal diagram for your section and pledged for No SPAD.
     </p>
-    <button class="btn" onclick="acceptDeclaration()">Accept</button>
-  </div>
 
-  <div id="itemForm" class="hidden">
-    <p><strong id="crewInfo"></strong></p>
-    <select id="itemType">
-      <option value="JTR">JTR</option>
-      <option value="FSD">FSD</option>
-      <option value="Walky">Walky</option>
-    </select><br />
-    <input type="text" id="itemNo" placeholder="Item Number" /><br />
-    <input type="time" id="cfTime" /><br />
-    <button class="btn" onclick="submitItem()">Submit</button>
+    <button onclick="acceptDeclaration()">Accept</button>
   </div>
 
   <script>
-    let crewData = {};
+    const socket = new WebSocket('ws://' + location.hostname + ':81');
 
-    // Connect to SB100CB via WebSocket (through ESP8266 bridge)
-    const socket = new WebSocket("ws://192.168.4.1:81"); // replace with your ESP8266 IP
+    socket.onopen = function () {
+      console.log("WebSocket connected ✅");
+    };
 
-    socket.onopen = () => console.log("🟢 WebSocket connected");
+    socket.onmessage = function (event) {
+      const parts = event.data.split("@");
+      const cmsid = parts[0] || "";
+      const name = parts[1] || "";
+      const desg = parts[2] || "";
 
-    socket.onmessage = event => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.name && data.designation && data.cmsId) {
-          crewData = data;
-          document.getElementById("waiting").classList.add("hidden");
-          document.getElementById("declarationScreen").classList.remove("hidden");
-        }
-      } catch (e) {
-        console.error("Invalid JSON:", e);
-      }
+      document.getElementById("cmsid").textContent = cmsid;
+      document.getElementById("name").textContent = name;
+      document.getElementById("desg").textContent = desg;
+
+      document.getElementById("declaration").style.display = 'block';
     };
 
     function acceptDeclaration() {
-      // Ring bell via ESP8266
-      fetch("http://192.168.4.1/ring");
-
-      // Log to Google Sheet
-      const sheetURL = "https://script.google.com/macros/s/AKfycbwbgFeK9hOavzcysWXWRLpW3Xw85DVCI7iNGqSBJnPaMgiax4gsxrPjRfQP0QopH0spHw/exec";
-      fetch(sheetURL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          timestamp: new Date().toISOString(),
-          name: crewData.name,
-          designation: crewData.designation,
-          cmsId: crewData.cmsId,
-          declaration: "Yes"
+      fetch('/accept', { method: 'POST' })
+        .then(() => {
+          alert("✅ Declaration accepted. Bell will ring now.");
+          document.getElementById("declaration").style.display = 'none';
         })
-      });
-
-      document.getElementById("declarationScreen").classList.add("hidden");
-
-      if (crewData.designation === "LPG") {
-        document.getElementById("itemForm").classList.remove("hidden");
-        document.getElementById("crewInfo").innerText = `${crewData.name} (${crewData.cmsId})`;
-      } else {
-        alert("✅ Bell triggered. Non-LPG crew logged.");
-      }
-    }
-
-    function submitItem() {
-      const itemType = document.getElementById("itemType").value;
-      const itemNo = document.getElementById("itemNo").value.trim();
-      const cfTime = document.getElementById("cfTime").value;
-
-      if (!itemNo || !cfTime) {
-        alert("❌ Fill all item details");
-        return;
-      }
-
-      const itemData = {
-        timestamp: new Date().toISOString(),
-        name: crewData.name,
-        designation: crewData.designation,
-        cmsId: crewData.cmsId,
-        itemType,
-        itemNo,
-        cfTime,
-        action: "Issue"
-      };
-
-      fetch("https://script.google.com/macros/s/AKfycbwbgFeK9hOavzcysWXWRLpW3Xw85DVCI7iNGqSBJnPaMgiax4gsxrPjRfQP0QopH0spHw/exec", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(itemData)
-      })
-      .then(() => alert("✅ Item Logged"))
-      .catch(err => alert("❌ Error: " + err));
+        .catch(err => {
+          alert("❌ Failed to submit.");
+        });
     }
   </script>
 </body>
