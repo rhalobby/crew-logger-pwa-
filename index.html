@@ -3,27 +3,28 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Crew Logger</title>
+  <title>RHA LOBBY Crew Logger</title>
   <link rel="manifest" href="manifest.json">
   <style>
     body {
       font-family: Arial, sans-serif;
       background-color: #f0f2f5;
       text-align: center;
+      margin: 0;
+      padding: 0;
+    }
+
+    #header {
+      background: #007bff;
+      color: white;
+      font-size: 30px;
+      font-weight: bold;
       padding: 20px;
     }
 
-    #declaration {
-      display: none;
-      background: #fff;
-      padding: 20px;
-      margin-top: 30px;
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.2);
-    }
-
-    h1 {
+    h2 {
       color: #333;
+      margin-top: 20px;
     }
 
     .info {
@@ -34,12 +35,13 @@
     .alert {
       color: red;
       font-weight: bold;
+      margin: 15px 0;
     }
 
     button {
       font-size: 18px;
       padding: 10px 20px;
-      margin: 15px;
+      margin: 10px;
       border: none;
       border-radius: 5px;
       background-color: #007bff;
@@ -50,53 +52,264 @@
     button:hover {
       background-color: #0056b3;
     }
+
+    input {
+      font-size: 18px;
+      padding: 8px;
+      margin: 8px;
+    }
+
+    #sleepOverlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: black;
+      color: white;
+      font-size: 40px;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+
+    .hidden { display: none; }
   </style>
 </head>
 <body>
-  <h1>SB100CB Crew Logger</h1>
 
-  <div id="declaration">
+  <!-- Header -->
+  <div id="header">RHA LOBBY</div>
+
+  <!-- IDLE SCREEN -->
+  <div id="idleScreen">
+    <h2>Soft Register</h2>
+  </div>
+
+  <!-- DECLARATION SCREEN -->
+  <div id="declarationScreen" class="hidden">
+    <h2>Crew Details</h2>
     <p class="info"><strong>CMS ID:</strong> <span id="cmsid"></span></p>
-    <p class="info"><strong>Name:</strong> <span id="name"></span></p>
-    <p class="info"><strong>Designation:</strong> <span id="desg"></span></p>
+    <p class="info"><strong>Name:</strong> <span id="crewName"></span></p>
+    <p class="info"><strong>Designation:</strong> <span id="crewDesg"></span></p>
 
     <p class="alert">
       On accepting, you hereby declare that you have gone through the signal diagram for your section and pledged for No SPAD.
     </p>
-
     <button onclick="acceptDeclaration()">Accept</button>
   </div>
 
+  <!-- ITEM SCREEN -->
+  <div id="itemScreen" class="hidden">
+    <h2 id="itemTitle"></h2>
+    <div id="itemForm"></div>
+  </div>
+
+  <!-- ACCR SCREEN -->
+  <div id="accrScreen" class="hidden">
+    <h2>Waiting for Crew Controller Fingerprint...</h2>
+    <p class="alert">Only ACCR (RHA37–RHA57) allowed</p>
+  </div>
+
+  <!-- SLEEP OVERLAY -->
+  <div id="sleepOverlay">⏸ SLEEP MODE ⏸<br><small>Touch to wake up</small></div>
+
   <script>
+    let currentCrew = null;
+    let isLPG = false;
+    let pendingItems = [];
+    let finalLogBuffer = [];
+    let accWaiting = false;
+    let inactivityTimer;
+
+    // WebSocket connection
     const socket = new WebSocket('ws://' + location.hostname + ':81');
 
-    socket.onopen = function () {
-      console.log("WebSocket connected ✅");
-    };
+    socket.onopen = () => console.log("✅ WebSocket connected");
 
-    socket.onmessage = function (event) {
+    socket.onmessage = (event) => {
       const parts = event.data.split("@");
       const cmsid = parts[0] || "";
       const name = parts[1] || "";
       const desg = parts[2] || "";
+      const alreadyIssued = parts[3] ? JSON.parse(parts[3]) : [];
+
+      // ✅ If ACCR expected
+      if (accWaiting) {
+        if (isACCR(cmsid)) {
+          finalizeLog(name);
+        } else {
+          alert("❌ Not valid Crew Controller! Please scan ACCR fingerprint.");
+        }
+        return;
+      }
+
+      // ✅ Normal crew flow
+      wakeIdleScreen();
+      currentCrew = { cmsid, name, desg, alreadyIssued };
+      isLPG = (desg === "LPG");
 
       document.getElementById("cmsid").textContent = cmsid;
-      document.getElementById("name").textContent = name;
-      document.getElementById("desg").textContent = desg;
+      document.getElementById("crewName").textContent = name;
+      document.getElementById("crewDesg").textContent = desg;
 
-      document.getElementById("declaration").style.display = 'block';
+      hideAllScreens();
+      document.getElementById("declarationScreen").classList.remove("hidden");
     };
 
-    function acceptDeclaration() {
-      fetch('/accept', { method: 'POST' })
-        .then(() => {
-          alert("✅ Declaration accepted. Bell will ring now.");
-          document.getElementById("declaration").style.display = 'none';
-        })
-        .catch(err => {
-          alert("❌ Failed to submit.");
-        });
+    // ACCR check
+    function isACCR(cmsid) {
+      let num = parseInt(cmsid.replace("RHA", ""), 10);
+      return num >= 37 && num <= 57;
     }
+
+    function acceptDeclaration() {
+      fetch('/accept', { method:'POST' });
+
+      if (!isLPG) {
+        alert("✅ Non-LPG crew. Bell rung. Returning to Idle.");
+        resetToIdle();
+        return;
+      }
+
+      // LPG → Start Wizard
+      startItemWizard();
+    }
+
+    function startItemWizard() {
+      hideAllScreens();
+      document.getElementById("itemScreen").classList.remove("hidden");
+
+      if (currentCrew.alreadyIssued.length > 0) {
+        // Submit mode
+        pendingItems = currentCrew.alreadyIssued;
+        showNextItem("submit");
+      } else {
+        // Issue mode
+        pendingItems = ["JTR", "FSD", "Walky"];
+        showNextItem("issue");
+      }
+    }
+
+    function showNextItem(mode) {
+      if (pendingItems.length === 0) {
+        askForACCR();
+        return;
+      }
+
+      let currentItem = pendingItems.shift();
+      document.getElementById("itemTitle").textContent =
+        mode === "submit" ? `Submit ${currentItem}` : `Issue ${currentItem}`;
+
+      let html = "";
+      if (mode === "issue") {
+        html += `<label>${currentItem} No:</label>
+                 <input id="itemNo"><br>
+                 <label>CF Time:</label>
+                 <input id="cfTime"><br>
+                 <button onclick="submitItem('${currentItem}')">Submit</button>
+                 <button style="background:#999;" onclick="skipItem('${currentItem}')">NA</button>`;
+      } else {
+        html += `<p>Click below to submit your ${currentItem}</p>
+                 <button onclick="submitItem('${currentItem}')">Submit</button>
+                 <button style="background:#999;" onclick="skipItem('${currentItem}')">NA</button>`;
+      }
+      document.getElementById("itemForm").innerHTML = html;
+    }
+
+    function submitItem(item) {
+      let itemNo = document.getElementById("itemNo") ? document.getElementById("itemNo").value : "";
+      let cfTime = document.getElementById("cfTime") ? document.getElementById("cfTime").value : "";
+
+      finalLogBuffer.push({
+        crew: currentCrew,
+        item,
+        status: "issued",
+        itemNo,
+        cfTime
+      });
+
+      showNextItem(currentCrew.alreadyIssued.length > 0 ? "submit" : "issue");
+    }
+
+    function skipItem(item) {
+      finalLogBuffer.push({
+        crew: currentCrew,
+        item,
+        status: "NA"
+      });
+
+      showNextItem(currentCrew.alreadyIssued.length > 0 ? "submit" : "issue");
+    }
+
+    function askForACCR() {
+      hideAllScreens();
+      document.getElementById("accrScreen").classList.remove("hidden");
+      accWaiting = true;
+    }
+
+    function finalizeLog(accrName) {
+      accWaiting = false;
+
+      fetch('/finalize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          crew: currentCrew,
+          logs: finalLogBuffer,
+          accr: accrName
+        })
+      }).then(() => {
+        alert("✅ Finalized & logged with ACCR approval!");
+        finalLogBuffer = [];
+        resetToIdle();
+      });
+    }
+
+    function hideAllScreens() {
+      document.getElementById("idleScreen").classList.add("hidden");
+      document.getElementById("declarationScreen").classList.add("hidden");
+      document.getElementById("itemScreen").classList.add("hidden");
+      document.getElementById("accrScreen").classList.add("hidden");
+    }
+
+    function resetToIdle() {
+      hideAllScreens();
+      document.getElementById("idleScreen").classList.remove("hidden");
+    }
+
+    // --- SLEEP MODE ---
+    const sleepOverlay = document.getElementById("sleepOverlay");
+    let sleepTimeout;
+    function resetSleepTimer() {
+      clearTimeout(sleepTimeout);
+      sleepTimeout = setTimeout(goToSleep, 60000); // 1 min idle sleep
+    }
+    function goToSleep() { sleepOverlay.style.display = "flex"; }
+    function wakeIdleScreen() {
+      sleepOverlay.style.display = "none";
+      resetSleepTimer();
+      resetInactivityTimer();
+    }
+    document.addEventListener('mousemove', wakeIdleScreen);
+    document.addEventListener('touchstart', wakeIdleScreen);
+    document.addEventListener('keydown', wakeIdleScreen);
+
+    // --- AUTO RESET 2 min inactivity ---
+    function resetInactivityTimer() {
+      clearTimeout(inactivityTimer);
+      inactivityTimer = setTimeout(resetToIdle, 120000);
+    }
+
+    // Enable fullscreen kiosk on first tap
+    document.addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => console.log(err));
+      }
+    });
+
+    // Start in Idle
+    resetToIdle();
+    resetSleepTimer();
   </script>
 </body>
 </html>
