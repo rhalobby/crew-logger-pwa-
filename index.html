@@ -113,6 +113,11 @@
   <!-- SLEEP OVERLAY -->
   <div id="sleepOverlay">⏸ SLEEP MODE ⏸<br><small>Touch to wake up</small></div>
 
+  <!-- Beep Sound -->
+  <audio id="beepSound">
+    <source src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEAQB8AAAABAAEACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//8AAP//AAD//wAA" type="audio/wav">
+  </audio>
+
   <script>
     let currentCrew = null;
     let isLPG = false;
@@ -120,6 +125,8 @@
     let finalLogBuffer = [];
     let accWaiting = false;
     let inactivityTimer;
+
+    const beep = document.getElementById("beepSound");
 
     // WebSocket connection
     const socket = new WebSocket('ws://' + location.hostname + ':81');
@@ -166,7 +173,7 @@
       fetch('/accept', { method:'POST' });
 
       if (!isLPG) {
-        alert("✅ Non-LPG crew. Bell rung. Returning to Idle.");
+        showSuccessMessage("Declaration Accepted. Bell rung.");
         resetToIdle();
         return;
       }
@@ -228,7 +235,10 @@
         cfTime
       });
 
-      showNextItem(currentCrew.alreadyIssued.length > 0 ? "submit" : "issue");
+      showSuccessMessage(`${item} Submitted Successfully!`);
+      setTimeout(() => {
+        showNextItem(currentCrew.alreadyIssued.length > 0 ? "submit" : "issue");
+      }, 1500);
     }
 
     function skipItem(item) {
@@ -238,7 +248,10 @@
         status: "NA"
       });
 
-      showNextItem(currentCrew.alreadyIssued.length > 0 ? "submit" : "issue");
+      showSuccessMessage(`${item} marked as NA`);
+      setTimeout(() => {
+        showNextItem(currentCrew.alreadyIssued.length > 0 ? "submit" : "issue");
+      }, 1500);
     }
 
     function askForACCR() {
@@ -259,9 +272,9 @@
           accr: accrName
         })
       }).then(() => {
-        alert("✅ Finalized & logged with ACCR approval!");
+        showSuccessMessage("✅ All items finalized & logged!");
         finalLogBuffer = [];
-        resetToIdle();
+        setTimeout(resetToIdle, 2000);
       });
     }
 
@@ -275,6 +288,30 @@
     function resetToIdle() {
       hideAllScreens();
       document.getElementById("idleScreen").classList.remove("hidden");
+    }
+
+    // --- SUCCESS POPUP ---
+    function showSuccessMessage(text) {
+      // ✅ Beep sound
+      beep.currentTime = 0;
+      beep.play();
+
+      // ✅ Show popup
+      const msgDiv = document.createElement("div");
+      msgDiv.style.position = "fixed";
+      msgDiv.style.top = "30%";
+      msgDiv.style.left = "50%";
+      msgDiv.style.transform = "translateX(-50%)";
+      msgDiv.style.background = "#28a745";
+      msgDiv.style.color = "white";
+      msgDiv.style.fontSize = "24px";
+      msgDiv.style.padding = "20px";
+      msgDiv.style.borderRadius = "8px";
+      msgDiv.style.zIndex = "9999";
+      msgDiv.innerText = "✅ " + text;
+      document.body.appendChild(msgDiv);
+
+      setTimeout(() => msgDiv.remove(), 1500); // disappear after 1.5s
     }
 
     // --- SLEEP MODE ---
